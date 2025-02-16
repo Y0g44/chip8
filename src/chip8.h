@@ -42,7 +42,9 @@ typedef enum CHIP8_errors {
   CHIP8_Ok,
   CHIP8_MemoryAddressNotFound,
   CHIP8_RegisterNotFound,
-  CHIP8_InvalidArguments
+  CHIP8_InvalidArguments,
+  CHIP8_StackOverflow,
+  CHIP8_NoCall
 } CHIP8_errors;
 
 typedef struct CHIP8_chip8 {
@@ -58,38 +60,38 @@ typedef struct CHIP8_chip8 {
 } CHIP8_chip8;
 
 void CHIP8_init(CHIP8_chip8* chip8);
-void CHIP8_cls(CHIP8_chip8* chip8);
-void CHIP8_jmp(CHIP8_chip8* chip8, CHIP8_address addr);
-int CHIP8_call(CHIP8_chip8* chip8, CHIP8_address addr);
-void CHIP8_ret(CHIP8_chip8* chip8);
-CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address regAddr, CHIP8_byte byte);
-CHIP8_errors CHIP8_eq2(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address regAddr, CHIP8_byte byte);
-CHIP8_errors CHIP8_neq2(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address regAddr, CHIP8_byte byte);
-CHIP8_errors CHIP8_addr2(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address regAddr, CHIP8_byte byte);
-CHIP8_errors CHIP8_setr2(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_or(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_and(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_xor(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_sub(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_subn(CHIP8_chip8* chip8, CHIP8_register_address regAddr1, CHIP8_register_address regAddr2);
-CHIP8_errors CHIP8_shr(CHIP8_chip8* chip8, CHIP8_register_address regAddr);
-CHIP8_errors CHIP8_shl(CHIP8_chip8* chip8, CHIP8_register_address regAddr);
-CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr);
-CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address regAddr, CHIP8_byte byte);
-CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address regAddrX, CHIP8_register_address regAddrY, CHIP8_byte n);
 CHIP8_key CHIP8_kpeek(CHIP8_chip8* chip8);
 CHIP8_key CHIP8_kpop(CHIP8_chip8* chip8);
 void CHIP8_kpush(CHIP8_chip8* chip8, CHIP8_key key);
+void CHIP8_cls(CHIP8_chip8* chip8);
+CHIP8_errors CHIP8_jmp(CHIP8_chip8* chip8, CHIP8_address addr);
+CHIP8_errors CHIP8_call(CHIP8_chip8* chip8, CHIP8_address addr);
+CHIP8_errors CHIP8_ret(CHIP8_chip8* chip8);
+CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_eq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_neq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_addr2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte byte);
+CHIP8_errors CHIP8_setr2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_or(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_and(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_xor(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_sub(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_subn(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
+CHIP8_errors CHIP8_shr(CHIP8_chip8* chip8, CHIP8_register_address r);
+CHIP8_errors CHIP8_shl(CHIP8_chip8* chip8, CHIP8_register_address r);
+CHIP8_errors CHIP8_seti(CHIP8_chip8* chip8, CHIP8_address addr);
+CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_byte ch);
+CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr);
+CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_byte n);
 void CHIP8_skp(CHIP8_chip8* chip8, CHIP8_key key);
 void CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_key key);
-CHIP8_errors CHIP8_setdt(CHIP8_chip8* chip8, CHIP8_register_address regAddr);
-CHIP8_errors CHIP8_setst(CHIP8_chip8* chip8, CHIP8_register_address regAddr);
-CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address regAddr);
-CHIP8_errors CHIP8_seti1(CHIP8_chip8* chip8, CHIP8_address addr);
-CHIP8_errors CHIP8_seti2(CHIP8_chip8* chip8, CHIP8_byte sprite);
+CHIP8_errors CHIP8_setdt(CHIP8_chip8* chip8, CHIP8_register_address r);
+CHIP8_errors CHIP8_setst(CHIP8_chip8* chip8, CHIP8_register_address r);
+CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr);
-CHIP8_errors CHIP8_cprtomem(CHIP8_chip8* chip8, CHIP8_byte regAddrEnd);
-CHIP8_errors CHIP8_cpmemtor(CHIP8_chip8* chip8, CHIP8_byte regAddrEnd);
+CHIP8_errors CHIP8_rprtomem(CHIP8_chip8* chip8, CHIP8_byte r);
+CHIP8_errors CHIP8_rpmemtor(CHIP8_chip8* chip8, CHIP8_byte r);
