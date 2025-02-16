@@ -102,6 +102,7 @@ void CHIP8_cls(CHIP8_chip8* chip8) {
 CHIP8_errors CHIP8_jmp(CHIP8_chip8* chip8, CHIP8_address addr) {
   __CHIP8_chckAddr(addr)
   chip8->pc = addr;
+  return CHIP8_Ok;
 }
 
 // Call subroutine to the specified address.
@@ -112,7 +113,7 @@ CHIP8_errors CHIP8_call(CHIP8_chip8* chip8, CHIP8_address addr) {
   // If the stack has run out of space, the emulator will attempt to forcefully add to it
   // by overwriting the address at the very top of the stack.
   if (chip8->sp >= CHIP8_STACK_SIZE) {
-    chip8->stack[chip8->sp] = addr;
+    chip8->stack[chip8->sp - 1] = addr;
     return CHIP8_StackOverflow;
   }
 
@@ -295,6 +296,8 @@ CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_reg
     chip8->vram[nextVi] = xoredByte2;
     vi = nextVi;
   }
+  
+  return CHIP8_Ok;
 }
 
 // If the key is pressed, then skip to the next instruction.
