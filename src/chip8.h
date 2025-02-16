@@ -11,6 +11,8 @@
 #define CHIP8_VRAM_SIZE 256
 #define CHIP8_FLAG_REGISTER 15
 #define CHIP8_NUMBER_REGISTERS 16
+#define CHIP8_START_LOCATION 512
+#define CHIP8_MAX_ROM_SIZE CHIP8_MEMORY_SIZE - CHIP8_START_LOCATION
 
 typedef unsigned char CHIP8_register_address;
 typedef unsigned int CHIP8_address;
@@ -40,6 +42,9 @@ typedef enum CHIP8_key {
 
 typedef enum CHIP8_errors {
   CHIP8_Ok,
+  CHIP8_FileNotFound,
+  CHIP8_ROMTooBig,
+  CHIP8_MemoryAllocationFailed,
   CHIP8_MemoryAddressNotFound,
   CHIP8_RegisterNotFound,
   CHIP8_InvalidArguments,
@@ -53,6 +58,7 @@ typedef struct CHIP8_chip8 {
   CHIP8_address pc;
   CHIP8_word i, sp, kp;
   
+  CHIP8_byte wait;
   CHIP8_address stack[CHIP8_STACK_SIZE];
   CHIP8_key keys[CHIP8_KEY_STACK_SIZE];
   CHIP8_byte vram[CHIP8_VRAM_SIZE];
@@ -87,6 +93,7 @@ CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_byte ch);
 CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
 CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_byte n);
+CHIP8_errors CHIP8_waitkey(CHIP8_chip8* chip8, CHIP8_register_address r);
 void CHIP8_skp(CHIP8_chip8* chip8, CHIP8_key key);
 void CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_key key);
 CHIP8_errors CHIP8_setdt(CHIP8_chip8* chip8, CHIP8_register_address r);
@@ -95,3 +102,6 @@ CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr);
 CHIP8_errors CHIP8_rprtomem(CHIP8_chip8* chip8, CHIP8_byte r);
 CHIP8_errors CHIP8_rpmemtor(CHIP8_chip8* chip8, CHIP8_byte r);
+CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8);
+CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, const char* rom);
+CHIP8_errors CHIP8_loadfile(CHIP8_chip8* chip8, const char* path);

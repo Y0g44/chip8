@@ -5,6 +5,7 @@
  * For a copy, see <https://opensource.org/licenses/MIT>.
 */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include "chip8.h"
 
@@ -52,7 +53,8 @@ void CHIP8_init(CHIP8_chip8* chip8) {
   // Set the initial value of the member
   // Some members do not set the initial value,
   // because even if the value is not set, it will not have an effect.
-  chip8->pc = 0x200;
+  chip8->wait = 0;
+  chip8->pc = CHIP8_START_LOCATION;
   chip8->dt = 0;
   chip8->st = 0;
   chip8->i = 0;
@@ -133,28 +135,28 @@ CHIP8_errors CHIP8_ret(CHIP8_chip8* chip8) {
 // If r == b is true, then skip to the next instruction.
 CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
   __CHIP8_chckReg1(r)
-  if (chip8->r[r] == b) chip8->pc++;
+  if (chip8->r[r] == b) chip8->pc += 2;
   return CHIP8_Ok;
 }
 
 // If r1 == r2 is true, then skip to the next instruction.
 CHIP8_errors CHIP8_eq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2) {
   __CHIP8_chckReg2(r1, r2)
-  if (chip8->r[r1] == chip8->r[r2]) chip8->pc++;
+  if (chip8->r[r1] == chip8->r[r2]) chip8->pc += 2;
   return CHIP8_Ok;
 }
 
 // If r != b is true, then skip to the next instruction.
 CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
   __CHIP8_chckReg1(r)
-  if (chip8->r[r] != b) chip8->pc++;
+  if (chip8->r[r] != b) chip8->pc += 2;
   return CHIP8_Ok;
 }
 
 // If r1 != r2 is true, then skip to the next instruction.
 CHIP8_errors CHIP8_neq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2) {
   __CHIP8_chckReg2(r1, r2)
-  if (chip8->r[r1] != chip8->r[r2]) chip8->pc++;
+  if (chip8->r[r1] != chip8->r[r2]) chip8->pc += 2;
   return CHIP8_Ok;
 }
 
@@ -229,6 +231,7 @@ CHIP8_errors CHIP8_subn(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_reg
 CHIP8_errors CHIP8_shr(CHIP8_chip8* chip8, CHIP8_register_address r) {
   __CHIP8_chckReg1(r)
   chip8->r[r] >>= 1;
+  chip8->r[CHIP8_FLAG_REGISTER] = chip8->r[r] & 0b1;
   return CHIP8_Ok;
 }
 
@@ -236,6 +239,7 @@ CHIP8_errors CHIP8_shr(CHIP8_chip8* chip8, CHIP8_register_address r) {
 CHIP8_errors CHIP8_shl(CHIP8_chip8* chip8, CHIP8_register_address r) {
   __CHIP8_chckReg1(r)
   chip8->r[r] <<= 1;
+  chip8->r[CHIP8_FLAG_REGISTER] = chip8->r[r] & 0x80;
   return CHIP8_Ok;
 }
 
@@ -300,14 +304,37 @@ CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_reg
   return CHIP8_Ok;
 }
 
+// Wait for the key to be pressed, then store the newly pressed key to r.
+CHIP8_errors CHIP8_waitkey(CHIP8_chip8* chip8, CHIP8_register_address r) {
+  __CHIP8_chckReg1(r);
+  CHIP8_key key = CHIP8_kpop(chip8);
+  if (key == CHIP8_key_none) {
+    chip8->wait = 1;
+  } else {
+    chip8->r[r] = key;
+  }
+  return CHIP8_Ok;
+}
+
 // If the key is pressed, then skip to the next instruction.
 void CHIP8_skp(CHIP8_chip8* chip8, CHIP8_key key) {
-  if (CHIP8_kpop(chip8) == key) chip8->pc++;
+  if (CHIP8_kpop(chip8) == key) {
+    chip8->pc += 2;
+  }
 }
 
 // If the key is not pressed, then skip to the next instruction.
 void CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_key key) {
-  if (CHIP8_kpop(chip8) != key) chip8->pc++;
+  if (CHIP8_kpop(chip8) != key) {
+    chip8->pc += 2;
+  }
+}
+
+// Set r with DT (r = DT).
+CHIP8_errors CHIP8_setrdt(CHIP8_chip8* chip8, CHIP8_register_address r) {
+  __CHIP8_chckReg1(r);
+  chip8->r[r] = chip8->dt;
+  return CHIP8_Ok;
 }
 
 // Set the delay timer with r(DT = r).
@@ -355,5 +382,139 @@ CHIP8_errors CHIP8_rpmemtor(CHIP8_chip8* chip8, CHIP8_byte r) {
   for (unsigned short i = 0; i < r; i++) {
     chip8->r[i] = chip8->memory[chip8->i + i];
   }
+  return CHIP8_Ok;
+}
+
+// Execute the instruction in memory in 1 cycle.
+CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8) {
+  if (chip8->pc + 1 >= CHIP8_MEMORY_SIZE) {
+    return CHIP8_MemoryAddressNotFound;
+  }
+
+  CHIP8_word op = (chip8->memory[chip8->pc] << 8) | chip8->memory[chip8->pc + 1];
+
+  if (op == 0x00E0) {
+    CHIP8_cls(chip8);
+    return CHIP8_Ok;
+  } else if (op == 0x00EE) {
+    return CHIP8_ret(chip8);
+  }
+
+  #define op_nnn (op & 0x0FFF)
+  #define op_nn (op & 0x00FF)
+  #define op_n (op & 0x000F)
+  #define op_vx ((op & 0x0F00) >> 8)
+  #define op_vy ((op & 0x00F0) >> 4)
+  #define op_vz (op & 0x000F)
+
+  switch (op & 0xF000) {
+    case 0x0: break;
+    case 0x1000: return CHIP8_jmp(chip8, op_nnn);
+    case 0x2000: return CHIP8_call(chip8, op_nnn);
+    case 0x3000: return CHIP8_eq1(chip8, op_vx, op_nn);
+    case 0x4000: return CHIP8_neq1(chip8, op_vx, op_nn);
+    case 0x5000:
+      if (op_n == 0) {
+        return CHIP8_eq2(chip8, op_vx, op_vy);
+      }
+      break;
+    case 0x6000: return CHIP8_setr1(chip8, op_vx, op_nn);
+    case 0x7000: return CHIP8_addr1(chip8, op_vx, op_nn);
+    case 0x8000:
+      switch (op_n) {
+        case 0x0: return CHIP8_setr2(chip8, op_vx, op_vy);
+        case 0x1: return CHIP8_or(chip8, op_vx, op_vy);
+        case 0x2: return CHIP8_and(chip8, op_vx, op_vy);
+        case 0x3: return CHIP8_xor(chip8, op_vx, op_vy);
+        case 0x4: return CHIP8_addr2(chip8, op_vx, op_vy);
+        case 0x5: return CHIP8_sub(chip8, op_vx, op_vy);
+        case 0x6: return CHIP8_shr(chip8, op_vx);
+        case 0x7: return CHIP8_subn(chip8, op_vx, op_vy);
+        case 0xE: return CHIP8_shl(chip8, op_vx);
+      }
+      break;
+    case 0x9000:
+      if (op_n == 0) {
+        return CHIP8_neq2(chip8, op_vx, op_vy);
+      }
+      break;
+    case 0xA000: return CHIP8_seti(chip8, op_nnn);
+    case 0xB000: return CHIP8_rjmp(chip8, op_nnn);
+    case 0xC000: return CHIP8_rand(chip8, op_vx, op_nn);
+    case 0xD000: return CHIP8_draw(chip8, op_vx, op_vy, op_vz);
+    case 0xE000:
+      switch (op_nn) {
+        case 0x9E: CHIP8_skp(chip8, op_vx);
+        case 0xA1: CHIP8_sknp(chip8, op_vx);
+      }
+      break;
+    case 0xF000:
+      switch (op_nn) {
+        case 0x07: return CHIP8_setrdt(chip8, op_vx);
+        case 0x0A: return CHIP8_waitkey(chip8, op_vx);
+        case 0x15: return CHIP8_setdt(chip8, op_vx);
+        case 0x18: return CHIP8_setst(chip8, op_vx);
+        case 0x1E: return CHIP8_addi(chip8, op_vx);
+        case 0x29: return CHIP8_chseti(chip8, op_vx);
+        case 0x33: return CHIP8_bcd(chip8, op_vx);
+        case 0x55: return CHIP8_rpmemtor(chip8, op_vx);
+        case 0x65: return CHIP8_rprtomem(chip8, op_vx);
+      }
+      break;
+  }
+
+  #undef op_nnn
+  #undef op_nn
+  #undef op_vx
+  #undef op_vy
+  #undef op_vz
+
+  if (chip8->dt) chip8->dt--;
+  if (chip8->st) chip8->st--;
+  if (!chip8->wait) chip8->pc += 2;
+  return CHIP8_Ok;
+}
+
+// Load the ROM into memory.
+CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, const char* rom) {
+  unsigned long ROMSize = sizeof(rom) / sizeof(CHIP8_byte);
+  if(ROMSize > CHIP8_MAX_ROM_SIZE) {
+    return CHIP8_ROMTooBig;
+  }
+
+  for (unsigned short i = 0; i < ROMSize; i++) {
+    chip8->memory[CHIP8_START_LOCATION + i] = rom[i];
+  }
+
+  return CHIP8_Ok;
+}
+
+// Load the ROM file into memory.
+CHIP8_errors CHIP8_loadfile(CHIP8_chip8* chip8, const char* path) {
+  FILE* fp = fopen(path, "r");
+  if (!fp) {
+    return CHIP8_FileNotFound;
+  }
+
+  fseek(fp, 0, SEEK_END);
+  unsigned long ROMSize = ftell(fp);
+  if(ROMSize > CHIP8_MAX_ROM_SIZE) {
+    return CHIP8_ROMTooBig;
+  }
+
+  char* rom = malloc(sizeof(CHIP8_byte) * ROMSize);
+  if (!rom) {
+    return CHIP8_MemoryAllocationFailed;
+  }
+
+  fseek(fp, 0, SEEK_SET);
+  fread(rom, sizeof(CHIP8_byte), ROMSize, fp);
+  fclose(fp);
+
+  for (unsigned short i = 0; i < ROMSize; i++) {
+    chip8->memory[CHIP8_START_LOCATION + i] = rom[i];
+  }
+  free(rom);
+
   return CHIP8_Ok;
 }
