@@ -19,25 +19,26 @@ typedef unsigned int CHIP8_address;
 typedef unsigned char CHIP8_vram_address;
 typedef unsigned char CHIP8_byte;
 typedef int CHIP8_word;
+typedef unsigned long int CHIP8_size;
 
 typedef enum CHIP8_key {
-  CHIP8_key_none,
-  CHIP8_key_1,
-  CHIP8_key_2,
-  CHIP8_key_3,
-  CHIP8_key_4,
-  CHIP8_key_5,
-  CHIP8_key_6,
-  CHIP8_key_7,
-  CHIP8_key_8,
-  CHIP8_key_9,
-  CHIP8_key_0,
-  CHIP8_key_A,
-  CHIP8_key_B,
-  CHIP8_key_C,
-  CHIP8_key_D,
-  CHIP8_key_E,
-  CHIP8_key_F
+  CHIP8_key_none = 0xFF,
+  CHIP8_key_0 = 0x0,
+  CHIP8_key_1 = 0x1,
+  CHIP8_key_2 = 0x2,
+  CHIP8_key_3 = 0x3,
+  CHIP8_key_4 = 0x4,
+  CHIP8_key_5 = 0x5,
+  CHIP8_key_6 = 0x6,
+  CHIP8_key_7 = 0x7,
+  CHIP8_key_8 = 0x8,
+  CHIP8_key_9 = 0x9,
+  CHIP8_key_A = 0xA,
+  CHIP8_key_B = 0xB,
+  CHIP8_key_C = 0xC,
+  CHIP8_key_D = 0xD,
+  CHIP8_key_E = 0xE,
+  CHIP8_key_F = 0xF,
 } CHIP8_key;
 
 typedef enum CHIP8_errors {
@@ -49,20 +50,33 @@ typedef enum CHIP8_errors {
   CHIP8_RegisterNotFound,
   CHIP8_InvalidArguments,
   CHIP8_StackOverflow,
-  CHIP8_NoCall
+  CHIP8_NoCall,
+  Chip8_InvalidOpcode
 } CHIP8_errors;
 
 typedef struct CHIP8_chip8 {
-  CHIP8_byte r[CHIP8_NUMBER_REGISTERS];
+  CHIP8_byte* memory;
+
+  // NOTE:
+  // VRAM is a data structure that contains pixels in the display stored in a 1-dimensional array (kinda).
+  // Example :
+  // Index:             0                        1
+  // VRAM:    0  0  0  0  0  0  0  0   0  0  0  0  0  0  0  0
+  //          |  |  |  |  |  |  |  |   |  |  |  |  |  |  |  |
+  // Nth-bit: 7  6  5  4  3  2  1  0  15 14 13 12 11 10  9  8
+  // If you want to access pixels in x and y. Then the calculation is required:
+  // I (Index): (y * 8) + (x / 8)
+  // N (Nth bit): x % 7
+  // Why? Because I want to try to make a small and efficient screen buffer.
+  CHIP8_byte* vram;
   CHIP8_byte dt, st;
   CHIP8_address pc;
   CHIP8_word i, sp, kp;
+  CHIP8_byte r[CHIP8_NUMBER_REGISTERS];
   
-  CHIP8_byte wait;
   CHIP8_address stack[CHIP8_STACK_SIZE];
+  CHIP8_byte wait;
   CHIP8_key keys[CHIP8_KEY_STACK_SIZE];
-  CHIP8_byte vram[CHIP8_VRAM_SIZE];
-  CHIP8_byte memory[CHIP8_MEMORY_SIZE];
 } CHIP8_chip8;
 
 void CHIP8_init(CHIP8_chip8* chip8);
@@ -94,14 +108,15 @@ CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
 CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_byte n);
 CHIP8_errors CHIP8_waitkey(CHIP8_chip8* chip8, CHIP8_register_address r);
-void CHIP8_skp(CHIP8_chip8* chip8, CHIP8_key key);
-void CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_key key);
+CHIP8_errors CHIP8_skp(CHIP8_chip8* chip8, CHIP8_register_address key);
+CHIP8_errors CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_register_address key);
 CHIP8_errors CHIP8_setdt(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_setst(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr);
-CHIP8_errors CHIP8_rprtomem(CHIP8_chip8* chip8, CHIP8_byte r);
-CHIP8_errors CHIP8_rpmemtor(CHIP8_chip8* chip8, CHIP8_byte r);
+CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_byte r);
+CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_byte r);
+CHIP8_word CHIP8_getop(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8);
-CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, const char* rom);
+CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, CHIP8_byte* rom, CHIP8_size n);
 CHIP8_errors CHIP8_loadfile(CHIP8_chip8* chip8, const char* path);
