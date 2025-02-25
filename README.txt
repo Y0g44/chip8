@@ -7,5 +7,6 @@ The source code is licensed under the MIT License, so you are free to use the so
 Credits:
 - For CHIP8 technical guide: http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
 - For CHIP8 ROMs examples: https://github.com/JohnEarnest/chip8Archive
+- For chip8-test-rom: https://github.com/corax89/chip8-test-rom
 
 <3

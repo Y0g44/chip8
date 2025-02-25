@@ -1,1 +1,1 @@
-This directory contains example CHIP8 ROMs that can be used, these ROMs come from https://github.com/JohnEarnest/chip8Archive.
+This directory contains example CHIP8 ROMs that can be used, these ROMs come from https://github.com/JohnEarnest/chip8Archive and https://github.com/corax89/chip8-test-rom.
