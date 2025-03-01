@@ -17,8 +17,8 @@
 typedef unsigned char CHIP8_register_address;
 typedef unsigned int CHIP8_address;
 typedef unsigned char CHIP8_vram_address;
-typedef unsigned char CHIP8_byte;
-typedef int CHIP8_word;
+typedef unsigned char CHIP8_word;
+typedef int CHIP8_dword;
 typedef unsigned long int CHIP8_size;
 
 typedef enum CHIP8_key {
@@ -55,7 +55,7 @@ typedef enum CHIP8_errors {
 } CHIP8_errors;
 
 typedef struct CHIP8_chip8 {
-  CHIP8_byte* memory;
+  CHIP8_word* memory;
 
   // NOTE:
   // VRAM is a data structure that contains pixels in the display stored in a 1-dimensional array (kinda).
@@ -68,14 +68,14 @@ typedef struct CHIP8_chip8 {
   // I (Index): (y * 8) + (x / 8)
   // N (Nth bit): x % 7
   // Why? Because I want to try to make a small and efficient screen buffer.
-  CHIP8_byte* vram;
-  CHIP8_byte dt, st;
+  CHIP8_word* vram;
+  CHIP8_word dt, st;
   CHIP8_address pc;
-  CHIP8_word i, sp, kp;
-  CHIP8_byte r[CHIP8_NUMBER_REGISTERS];
+  CHIP8_dword i, sp, kp;
+  CHIP8_word r[CHIP8_NUMBER_REGISTERS];
   
   CHIP8_address stack[CHIP8_STACK_SIZE];
-  CHIP8_byte wait;
+  CHIP8_word wait;
   CHIP8_key keys[CHIP8_KEY_STACK_SIZE];
 } CHIP8_chip8;
 
@@ -87,13 +87,13 @@ void CHIP8_cls(CHIP8_chip8* chip8);
 CHIP8_errors CHIP8_jmp(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_call(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_ret(CHIP8_chip8* chip8);
-CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b);
 CHIP8_errors CHIP8_eq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
-CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b);
 CHIP8_errors CHIP8_neq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
-CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
+CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b);
 CHIP8_errors CHIP8_addr2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
-CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte byte);
+CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word byte);
 CHIP8_errors CHIP8_setr2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
 CHIP8_errors CHIP8_or(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
 CHIP8_errors CHIP8_and(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2);
@@ -103,20 +103,20 @@ CHIP8_errors CHIP8_subn(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_reg
 CHIP8_errors CHIP8_shr(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_shl(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_seti(CHIP8_chip8* chip8, CHIP8_address addr);
-CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_byte ch);
+CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_word ch);
 CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr);
-CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b);
-CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_byte n);
+CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b);
+CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_word n);
 CHIP8_errors CHIP8_waitkey(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_skp(CHIP8_chip8* chip8, CHIP8_register_address key);
 CHIP8_errors CHIP8_sknp(CHIP8_chip8* chip8, CHIP8_register_address key);
 CHIP8_errors CHIP8_setdt(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_setst(CHIP8_chip8* chip8, CHIP8_register_address r);
 CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address r);
-CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr);
-CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_byte r);
-CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_byte r);
-CHIP8_word CHIP8_getop(CHIP8_chip8* chip8, CHIP8_address addr);
+CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_word regAddr);
+CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_word r);
+CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_word r);
+CHIP8_dword CHIP8_getop(CHIP8_chip8* chip8, CHIP8_address addr);
 CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8);
-CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, CHIP8_byte* rom, CHIP8_size n);
+CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, CHIP8_word* rom, CHIP8_size n);
 CHIP8_errors CHIP8_loadfile(CHIP8_chip8* chip8, const char* path);

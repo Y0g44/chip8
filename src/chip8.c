@@ -8,33 +8,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "chip8.h"
 
 #define __CHIP8_chckReg1(r) if (r >= 16) { return CHIP8_RegisterNotFound; }
 #define __CHIP8_chckReg2(r1, r2) if (r1 >= 16 && r2 >= 16) { return CHIP8_RegisterNotFound; }
 #define __CHIP8_chckAddr(a)   if (a > CHIP8_MEMORY_SIZE) { return CHIP8_MemoryAddressNotFound; }
 
-static int fillZeroWithOne(unsigned short n) {
+static int fillOneBit(unsigned short n) {  
   switch (n) {
-    case 1: return 0b11111110;
+    case 1: return 0b1;
     break;
-    case 2: return 0b11111100;
+    case 2: return 0b11;
     break;
-    case 3: return 0b11111000;
+    case 3: return 0b111;
     break;
-    case 4: return 0b11110000;
+    case 4: return 0b1111;
     break;
-    case 5: return 0b11100000;
+    case 5: return 0b11111;
     break;
-    case 6: return 0b11000000;
+    case 6: return 0b111111;
     break;
-    case 7: return 0b10000000;
+    case 7: return 0b1111111;
   }
   return 0b11111111;
 }
 
 // Sprite characters that will be stored in memory.
-const CHIP8_byte sprites[80] = {
+const CHIP8_word sprites[80] = {
   0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
   0x20, 0x60, 0x20, 0x20, 0x70, // 1
   0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -67,11 +68,11 @@ void CHIP8_init(CHIP8_chip8* chip8) {
   chip8->sp = 0;
   chip8->kp = 0;
 
-  chip8->memory = malloc(sizeof(CHIP8_byte) * CHIP8_MEMORY_SIZE);
-  chip8->vram = malloc(sizeof(CHIP8_byte) * CHIP8_VRAM_SIZE);
-  memset(chip8->memory, 0, sizeof(CHIP8_byte) * CHIP8_MEMORY_SIZE);
-  memset(chip8->vram, 0, sizeof(CHIP8_byte) * CHIP8_VRAM_SIZE);
-  memset(chip8->r, 0, sizeof(CHIP8_byte) * CHIP8_NUMBER_REGISTERS);
+  chip8->memory = malloc(sizeof(CHIP8_word) * CHIP8_MEMORY_SIZE);
+  chip8->vram = malloc(sizeof(CHIP8_word) * CHIP8_VRAM_SIZE);
+  memset(chip8->memory, 0, sizeof(CHIP8_word) * CHIP8_MEMORY_SIZE);
+  memset(chip8->vram, 0, sizeof(CHIP8_word) * CHIP8_VRAM_SIZE);
+  memset(chip8->r, 0, sizeof(CHIP8_word) * CHIP8_NUMBER_REGISTERS);
   memset(chip8->stack, 0, sizeof(CHIP8_address) * CHIP8_STACK_SIZE);
   for (unsigned short int i = 0; i < 80; i++) {
     chip8->memory[i] = sprites[i];
@@ -150,7 +151,7 @@ CHIP8_errors CHIP8_ret(CHIP8_chip8* chip8) {
 }
 
 // If r == b is true, then skip to the next instruction.
-CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
+CHIP8_errors CHIP8_eq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b) {
   __CHIP8_chckReg1(r)
   if (chip8->r[r] == b) {
     CHIP8_next(chip8);
@@ -168,7 +169,7 @@ CHIP8_errors CHIP8_eq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_regi
 }
 
 // If r != b is true, then skip to the next instruction.
-CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
+CHIP8_errors CHIP8_neq1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b) {
   __CHIP8_chckReg1(r)
   if (chip8->r[r] != b) {
     CHIP8_next(chip8);
@@ -186,7 +187,7 @@ CHIP8_errors CHIP8_neq2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_reg
 }
 
 // Add r with b and then store to r (r = r + b), set 1 to Vf if the result > 255.
-CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
+CHIP8_errors CHIP8_addr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b) {
   __CHIP8_chckReg1(r)
   chip8->r[CHIP8_FLAG_REGISTER] = (unsigned int)chip8->r[r] + b > 255 ? 1 : 0;
   chip8->r[r] += b;
@@ -202,7 +203,7 @@ CHIP8_errors CHIP8_addr2(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_re
 }
 
 // Store data to r (register).
-CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte byte) {
+CHIP8_errors CHIP8_setr1(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word byte) {
   __CHIP8_chckReg1(r)
   chip8->r[r] = byte;
   return CHIP8_Ok;
@@ -233,6 +234,7 @@ CHIP8_errors CHIP8_and(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_regi
 CHIP8_errors CHIP8_xor(CHIP8_chip8* chip8, CHIP8_register_address r1, CHIP8_register_address r2) {
   __CHIP8_chckReg2(r1, r2)
   chip8->r[r1] ^= chip8->r[r2];
+  chip8->r[CHIP8_FLAG_REGISTER] = ((chip8->r[r1] ^ chip8->r[r2]) & ~chip8->r[r1]) != 0;
   return CHIP8_Ok;
 }
 
@@ -276,9 +278,9 @@ CHIP8_errors CHIP8_seti(CHIP8_chip8* chip8, CHIP8_address addr) {
 }
 
 // Store the address of the characters sprite to I.
-CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_byte r) {
+CHIP8_errors CHIP8_chseti(CHIP8_chip8* chip8, CHIP8_word r) {
   __CHIP8_chckReg1(r);
-  CHIP8_byte ch = chip8->r[r];
+  CHIP8_word ch = chip8->r[r];
   if (ch > 15) {
     return CHIP8_InvalidArguments;
   }
@@ -297,15 +299,31 @@ CHIP8_errors CHIP8_rjmp(CHIP8_chip8* chip8, CHIP8_address addr) {
 }
 
 // Get a random value (rand() & b) then store it to the r.
-CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_byte b) {
+CHIP8_errors CHIP8_rand(CHIP8_chip8* chip8, CHIP8_register_address r, CHIP8_word b) {
   __CHIP8_chckReg1(r)
   chip8->r[r] = rand() & b;
   return CHIP8_Ok;
 }
 
 // Draw the pixel to position (rx, ry) to VRAM.
-CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_byte n) {
-  __CHIP8_chckReg2(rx, ry);  
+CHIP8_errors CHIP8_draw(CHIP8_chip8* chip8, CHIP8_register_address rx, CHIP8_register_address ry, CHIP8_word n) {
+  __CHIP8_chckReg2(rx, ry);
+  CHIP8_word x = chip8->r[rx] % 64;
+  CHIP8_word y = chip8->r[ry] % 32;
+  CHIP8_vram_address ivr = ((x / 8) + (y * 8)) % CHIP8_VRAM_SIZE;
+  CHIP8_vram_address nvr = x % 8;
+
+  for (CHIP8_word i = 0; i < n; i++) {
+    CHIP8_vram_address x1 = ivr + i;
+    CHIP8_vram_address x2 = ivr + i + 1;
+    CHIP8_word b1 = (chip8->memory[chip8->i + i] & fillOneBit(8 - nvr)) << nvr;
+    CHIP8_word b2 = chip8->memory[chip8->i + i] >> (8 - nvr);
+    chip8->vram[x1] ^= b1;
+    chip8->vram[x2] ^= b2;
+    chip8->r[CHIP8_FLAG_REGISTER] = ((chip8->vram[x1] ^ b1) & ~chip8->vram[x1]) != 0
+      || ((chip8->vram[x2] ^ b2) & ~chip8->vram[x2]) != 0;
+  }
+  
   return CHIP8_Ok;
 }
 
@@ -369,7 +387,7 @@ CHIP8_errors CHIP8_addi(CHIP8_chip8* chip8, CHIP8_register_address r) {
 }
 
 // Break the decimal value into unit, ten and hundred, then store it in I, I+1, I+2.
-CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr) {
+CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_word regAddr) {
   __CHIP8_chckReg1(regAddr);
   chip8->memory[chip8->i] = (chip8->r[regAddr] / 100) % 10; ;
   chip8->memory[chip8->i + 1] = (chip8->r[regAddr] / 10) % 10;
@@ -378,7 +396,7 @@ CHIP8_errors CHIP8_bcd(CHIP8_chip8* chip8, CHIP8_byte regAddr) {
 }
 
 // Replace the memory data at address I ++ with values from V0 to Vr.
-CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_byte r) {
+CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_word r) {
   __CHIP8_chckReg1(r);
   for (unsigned short i = 0; i < r; i++) {
     chip8->memory[chip8->i + i] = chip8->r[i];
@@ -387,7 +405,7 @@ CHIP8_errors CHIP8_memtor(CHIP8_chip8* chip8, CHIP8_byte r) {
 }
 
 // Replace data V0 to Vr with address I ++.
-CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_byte r) {
+CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_word r) {
   __CHIP8_chckReg1(r);
   for (unsigned short i = 0; i < r; i++) {
     chip8->r[i] = chip8->memory[chip8->i + i];
@@ -395,7 +413,7 @@ CHIP8_errors CHIP8_rtomem(CHIP8_chip8* chip8, CHIP8_byte r) {
   return CHIP8_Ok;
 }
 
-CHIP8_word CHIP8_getop(CHIP8_chip8* chip8, CHIP8_address addr) {
+CHIP8_dword CHIP8_getop(CHIP8_chip8* chip8, CHIP8_address addr) {
   return (chip8->memory[addr] << 8) | chip8->memory[addr + 1];
 }
 
@@ -405,15 +423,15 @@ CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8) {
     return CHIP8_MemoryAddressNotFound;
   }
 
-  CHIP8_word op = CHIP8_getop(chip8, chip8->pc);
+  CHIP8_dword op = CHIP8_getop(chip8, chip8->pc);
   CHIP8_errors err = Chip8_InvalidOpcode;
   unsigned short jump = 0;
 
-  CHIP8_word op_nnn = op & 0x0FFF;
-  CHIP8_word op_nn = op & 0x00FF;
-  CHIP8_word op_n = op & 0x000F;
-  CHIP8_word op_r1 = (op & 0x0F00) >> 8;
-  CHIP8_word op_r2 = (op & 0x00F0) >> 4;
+  CHIP8_dword op_nnn = op & 0x0FFF;
+  CHIP8_dword op_nn = op & 0x00FF;
+  CHIP8_dword op_n = op & 0x000F;
+  CHIP8_dword op_r1 = (op & 0x0F00) >> 8;
+  CHIP8_dword op_r2 = (op & 0x00F0) >> 4;
 
   switch (op & 0xF000) {
     case 0x0000:
@@ -528,7 +546,7 @@ CHIP8_errors CHIP8_cycle(CHIP8_chip8* chip8) {
 }
 
 // Load the ROM into memory.
-CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, CHIP8_byte* rom, CHIP8_size n) {
+CHIP8_errors CHIP8_loadrom(CHIP8_chip8* chip8, CHIP8_word* rom, CHIP8_size n) {
   if(n > CHIP8_MAX_ROM_SIZE) {
     return CHIP8_ROMTooBig;
   }
@@ -554,13 +572,13 @@ CHIP8_errors CHIP8_loadfile(CHIP8_chip8* chip8, const char* path) {
     return CHIP8_ROMTooBig;
   }
 
-  char* rom = malloc(sizeof(CHIP8_byte) * ROMSize);
+  char* rom = malloc(sizeof(CHIP8_word) * ROMSize);
   if (!rom) {
     return CHIP8_MemoryAllocationFailed;
   }
 
   fseek(fp, 0, SEEK_SET);
-  fread(rom, sizeof(CHIP8_byte), ROMSize, fp);
+  fread(rom, sizeof(CHIP8_word), ROMSize, fp);
   fclose(fp);
 
   for (unsigned short i = 0; i < ROMSize; i++) {
