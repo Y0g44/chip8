@@ -6,7 +6,6 @@
 */
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "chip8.h"
 
@@ -14,7 +13,7 @@
 #define CHIP8_VRAM_SIZE 256
 #define CHIP8_MEMORY_SIZE 4096
 
-#define doesXORMakeCollision(a, b) (a) & ~(b) != 0
+#define doesXORMakeCollision(a, b) (((a) & ~(b)) != 0)
 #define max(a, b) a > b ? a : b
 #define min(a, b) a < b ? a : b
 
@@ -23,7 +22,7 @@ static const CHIP8_Word sprites[80] = {
   0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
   0x20, 0x60, 0x20, 0x20, 0x70, // 1
   0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-  0xF0, 0x10, 0xF0, 0x10, 0xD0, // 3
+  0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
   0x90, 0x90, 0xF0, 0x10, 0x10, // 4
   0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
   0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
@@ -37,6 +36,19 @@ static const CHIP8_Word sprites[80] = {
   0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
   0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 };
+
+static unsigned short fillOneBit(unsigned short n) {
+  switch (n) {
+    case 7: return 0b1111111;
+    case 6: return 0b111111;
+    case 5: return 0b11111;
+    case 4: return 0b1111;
+    case 3: return 0b111;
+    case 2: return 0b11;
+    case 1: return 0b1;
+  }
+  return 0b11111111;
+}
 
 void CHIP8_init(CHIP8_Chip8* chip8) {
   chip8->wait = 0;
@@ -140,13 +152,13 @@ CHIP8_Error CHIP8_getspritechar(CHIP8_Word ch, CHIP8_MemoryAddress* addr) {
   return CHIP8_Ok;
 }
 
-unsigned short CHIP8_getpixelcolor(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y) {
+unsigned short CHIP8_getpixel(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y) {
   x = x % 64;
   y = y % 32;
 
   CHIP8_VramAddress i = ((x / 8) + (y * 8)) % CHIP8_VRAM_SIZE;
-  CHIP8_VramAddress n = x % 8;
-
+  CHIP8_VramAddress n = 7 - (x % 8);
+  
   return (chip8->vram[i] & (1 << n)) >> n;
 }
 
@@ -155,32 +167,18 @@ void CHIP8_draw(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y, CHIP8_Word sprit
   y = y % 32;
 
   CHIP8_VramAddress i = ((x / 8) + (y * 8)) % CHIP8_VRAM_SIZE;
-  CHIP8_VramAddress n = x % 8;
-  CHIP8_Word b2 = sprite >> (8 - n);
-  CHIP8_Word b1 = sprite;
-  switch (n) {
-    case 7: b1 &= 0b1;
-    break;
-    case 6: b1 &= 0b11;
-    break;
-    case 5: b1 &= 0b111;
-    break;
-    case 4: b1 &= 0b1111;
-    break;
-    case 3: b1 &= 0b11111;
-    break;
-    case 2: b1 &= 0b111111;
-    break;
-    case 1: b1 &= 0b1111111;
-  }
-  b1 <<= n;
+  CHIP8_VramAddress n1 = x % 8;
+  CHIP8_VramAddress n2 = 8 - n1;
 
-  CHIP8_VramAddress x1 = i;
-  CHIP8_VramAddress x2 = i + 1;
-  chip8->vram[x1] ^= b1;
-  chip8->vram[x2] ^= b2;
-  chip8->r[15] = doesXORMakeCollision(chip8->vram[x1] ^ b1, chip8->vram[x1]) ||
-    doesXORMakeCollision(chip8->vram[x2] ^ b2, chip8->vram[x2]);
+  CHIP8_Word b1 = (sprite & (fillOneBit(n2) << n1)) >> n1;
+  CHIP8_Word b2 = (sprite & fillOneBit(n1)) << n2;
+  
+  CHIP8_VramAddress i1 = i;
+  CHIP8_VramAddress i2 = (i % 8) == 7 ? i - 8 : i + 1;
+  chip8->vram[i1] ^= b1;
+  chip8->vram[i2] ^= b2;
+  chip8->r[15] = doesXORMakeCollision(chip8->vram[i1] ^ b1, chip8->vram[i1]) ||
+    doesXORMakeCollision(chip8->vram[i2] ^ b2, chip8->vram[i2]);
 }
 
 CHIP8_Error CHIP8_parse(CHIP8_Dword op, CHIP8_Opcode* opcode) {
@@ -346,7 +344,7 @@ CHIP8_Error CHIP8_execute(CHIP8_Chip8* chip8, CHIP8_Dword op, CHIP8_Opcode* opco
 
       for (CHIP8_Word i = 0; i < n; i++) {
         CHIP8_MemoryAddress addr = min(chip8->i + i, CHIP8_MEMORY_SIZE - 1);
-        CHIP8_draw(chip8, x + i, y + i, chip8->memory[addr]);
+        CHIP8_draw(chip8, x, y + i, chip8->memory[addr]);
       }
     break;
     case CHIP8_OpcodeSkp: if (CHIP8_kpop(chip8) == chip8->r[vx]) CHIP8_next(chip8);
@@ -371,18 +369,17 @@ CHIP8_Error CHIP8_execute(CHIP8_Chip8* chip8, CHIP8_Dword op, CHIP8_Opcode* opco
     case CHIP8_OpcodeLd8: err = CHIP8_getspritechar(chip8->r[vx], &chip8->i);
     break;
     case CHIP8_OpcodeLd9:
-      chip8->memory[chip8->i] = (chip8->r[vx] / 100) % 10;
-      chip8->memory[chip8->i + 1] = (chip8->r[vx] / 10) % 10;
+      chip8->memory[chip8->i] = chip8->r[vx] / 100;
+      chip8->memory[chip8->i + 1] = (chip8->r[vx] % 100) / 10;
       chip8->memory[chip8->i + 2] = chip8->r[vx] % 10;
     break;
-    case CHIP8_OpcodeLd10: memcpy(chip8->memory + chip8->i, chip8->r, vx);
+    case CHIP8_OpcodeLd10: memcpy(chip8->memory + chip8->i, chip8->r, vx + 1);
     break;
-    case CHIP8_OpcodeLd11: memcpy(chip8->r, chip8->memory + chip8->i, vx);
+    case CHIP8_OpcodeLd11: memcpy(chip8->r, chip8->memory + chip8->i, vx + 1);
   }
 
   return err;
 }
-
 
 CHIP8_Error CHIP8_cycle(CHIP8_Chip8* chip8) {
   if ((chip8->pc + 1) >= CHIP8_MEMORY_SIZE) {
@@ -390,7 +387,7 @@ CHIP8_Error CHIP8_cycle(CHIP8_Chip8* chip8) {
   }
   
   CHIP8_Dword op = CHIP8_getop(chip8, chip8->pc);
-  CHIP8_Opcode opcode;
+  CHIP8_Opcode opcode = CHIP8_OpcodeUnknown;
   CHIP8_Error err = CHIP8_execute(chip8, op, &opcode);
 
   if (chip8->dt) chip8->dt--;

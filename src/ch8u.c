@@ -5,12 +5,6 @@
  * For a copy, see <https://opensource.org/licenses/MIT>.
 */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <time.h>
-#include "chip8.h"
-
 int main() {
   return 0;
 }

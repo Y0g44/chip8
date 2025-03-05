@@ -48,6 +48,7 @@ typedef enum CHIP8_Error {
 } CHIP8_Error;
 
 typedef enum CHIP8_Opcode {
+  CHIP8_OpcodeUnknown,
   CHIP8_OpcodeCls,  // 00E0
   CHIP8_OpcodeRet,  // 00EE
   CHIP8_OpcodeJp1,  // 1nnn
@@ -109,7 +110,7 @@ void CHIP8_cls(CHIP8_Chip8* chip8);
 CHIP8_Error CHIP8_call(CHIP8_Chip8* chip8, CHIP8_MemoryAddress addr);
 CHIP8_Error CHIP8_ret(CHIP8_Chip8* chip8);
 CHIP8_Error CHIP8_getspritechar(CHIP8_Word ch, CHIP8_MemoryAddress* addr);
-unsigned short CHIP8_getpixelcolor(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y);
+unsigned short CHIP8_getpixel(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y);
 void CHIP8_draw(CHIP8_Chip8* chip8, CHIP8_Byte x, CHIP8_Byte y, CHIP8_Word sprite);
 CHIP8_Error CHIP8_parse(CHIP8_Dword op, CHIP8_Opcode* opcode);
 CHIP8_Error CHIP8_execute(CHIP8_Chip8* chip8, CHIP8_Dword op, CHIP8_Opcode* opcode);
