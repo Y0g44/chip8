@@ -6,7 +6,7 @@
 */
 
 #define CHIP8_STACK_SIZE 16
-#define CHIP8_KEY_STACK_SIZE 32
+#define CHIP8_KEY_QUEUE_SIZE 32
 
 typedef unsigned char CHIP8_RegisterAddress;
 typedef unsigned int CHIP8_MemoryAddress;
@@ -85,6 +85,12 @@ typedef enum CHIP8_Opcode {
   CHIP8_OpcodeLd11, // Fx65
 } CHIP8_Opcode;
 
+typedef struct CHIP8_Keyboard {
+  CHIP8_Key keys[CHIP8_KEY_QUEUE_SIZE];
+  unsigned short head;
+  unsigned short tail;
+} CHIP8_Keyboard;
+
 typedef struct CHIP8_Chip8 {
   CHIP8_Word* memory;
   CHIP8_Word* vram;
@@ -96,16 +102,16 @@ typedef struct CHIP8_Chip8 {
   
   CHIP8_MemoryAddress stack[CHIP8_STACK_SIZE];
   CHIP8_Word wait;
-  CHIP8_Key keys[CHIP8_KEY_STACK_SIZE];
+  CHIP8_Keyboard* keyboard;
 } CHIP8_Chip8;
 
 void CHIP8_init(CHIP8_Chip8* chip8);
 void CHIP8_deinit(CHIP8_Chip8* chip8);
 void CHIP8_next(CHIP8_Chip8* chip8);
 CHIP8_Dword CHIP8_getop(CHIP8_Chip8* chip8, CHIP8_MemoryAddress addr);
-CHIP8_Key CHIP8_kpeek(CHIP8_Chip8* chip8);
-CHIP8_Key CHIP8_kpop(CHIP8_Chip8* chip8);
-void CHIP8_kpush(CHIP8_Chip8* chip8, CHIP8_Key key);
+CHIP8_Key CHIP8_kpeek(CHIP8_Keyboard* keyboard);
+CHIP8_Key CHIP8_kpop(CHIP8_Keyboard* keyboard);
+void CHIP8_kpush(CHIP8_Keyboard* keyboard, CHIP8_Key key);
 void CHIP8_cls(CHIP8_Chip8* chip8);
 CHIP8_Error CHIP8_call(CHIP8_Chip8* chip8, CHIP8_MemoryAddress addr);
 CHIP8_Error CHIP8_ret(CHIP8_Chip8* chip8);

@@ -6,6 +6,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "chip8.h"
 
@@ -59,8 +60,14 @@ void CHIP8_init(CHIP8_Chip8* chip8) {
   chip8->sp = 0;
   chip8->kp = 0;
 
+  chip8->keyboard = malloc(sizeof(CHIP8_Keyboard));
+  chip8->keyboard->head = 0;
+  chip8->keyboard->tail = 0;
+  memset(chip8->keyboard->keys, 0, sizeof(CHIP8_Key) * CHIP8_KEY_QUEUE_SIZE);
+
   chip8->memory = malloc(sizeof(CHIP8_Word) * CHIP8_MEMORY_SIZE);
   chip8->vram = malloc(sizeof(CHIP8_Word) * CHIP8_VRAM_SIZE);
+
   memset(chip8->memory, 0, sizeof(CHIP8_Word) * CHIP8_MEMORY_SIZE);
   memset(chip8->vram, 0, sizeof(CHIP8_Word) * CHIP8_VRAM_SIZE);
   memset(chip8->r, 0, sizeof(CHIP8_Word) * 16);
@@ -76,6 +83,7 @@ void CHIP8_deinit(CHIP8_Chip8* chip8) {
   chip8->i = 0;
   chip8->sp = 0;
   chip8->kp = 0;
+  free(chip8->keyboard);
   free(chip8->memory);
   free(chip8->vram);
   memset(chip8->r, 0, sizeof(CHIP8_Word) * 16);
@@ -92,24 +100,30 @@ CHIP8_Dword CHIP8_getop(CHIP8_Chip8* chip8, CHIP8_MemoryAddress addr) {
   return (chip8->memory[addr] << 8) | chip8->memory[addr + 1];
 }
 
-CHIP8_Key CHIP8_kpeek(CHIP8_Chip8* chip8) {
-  return chip8->kp == 0 || chip8->kp > CHIP8_KEY_STACK_SIZE
-    ? CHIP8_KeyNone
-    : chip8->keys[chip8->kp];
+CHIP8_Key CHIP8_kpeek(CHIP8_Keyboard* keyboard) {
+  return ((keyboard->head - 1) % CHIP8_KEY_QUEUE_SIZE) != keyboard->tail
+    ? keyboard->keys[keyboard->head]
+    : CHIP8_KeyNone;
 }
 
-CHIP8_Key CHIP8_kpop(CHIP8_Chip8* chip8) {
-  CHIP8_Key head = CHIP8_kpeek(chip8);
-  if (head != CHIP8_KeyNone) {
-    chip8->kp--;
+CHIP8_Key CHIP8_kpop(CHIP8_Keyboard* keyboard) {
+  if (keyboard->head != keyboard->tail) {
+    keyboard->head = (keyboard->head + 1) % CHIP8_KEY_QUEUE_SIZE;
+    return keyboard->keys[keyboard->head];
   }
-
-  return head;
+  
+  return CHIP8_KeyNone;
 }
 
-void CHIP8_kpush(CHIP8_Chip8* chip8, CHIP8_Key key) {
-  if (key != CHIP8_KeyNone) {
-    chip8->keys[chip8->kp > CHIP8_KEY_STACK_SIZE ? chip8->kp : ++chip8->kp] = key;
+void CHIP8_kpush(CHIP8_Keyboard* keyboard, CHIP8_Key key) {
+  keyboard->head = keyboard->head % CHIP8_KEY_QUEUE_SIZE;
+  
+  size_t nextTail = (keyboard->tail + 1) % CHIP8_KEY_QUEUE_SIZE;
+  if (keyboard->head == nextTail) {
+    keyboard->keys[keyboard->tail] = key;
+  } else {
+    keyboard->keys[keyboard->tail] = key;
+    keyboard->tail = nextTail;
   }
 }
 
@@ -347,14 +361,14 @@ CHIP8_Error CHIP8_execute(CHIP8_Chip8* chip8, CHIP8_Dword op, CHIP8_Opcode* opco
         CHIP8_draw(chip8, x, y + i, chip8->memory[addr]);
       }
     break;
-    case CHIP8_OpcodeSkp: if (CHIP8_kpop(chip8) == chip8->r[vx]) CHIP8_next(chip8);
+    case CHIP8_OpcodeSkp: if (CHIP8_kpop(chip8->keyboard) == chip8->r[vx]) CHIP8_next(chip8);
     break;
-    case CHIP8_OpcodeSknp: if (CHIP8_kpop(chip8) != chip8->r[vx]) CHIP8_next(chip8);
+    case CHIP8_OpcodeSknp: if (CHIP8_kpop(chip8->keyboard) != chip8->r[vx]) CHIP8_next(chip8);
     break;
     case CHIP8_OpcodeLd4: chip8->r[vx] = chip8->dt;
     break;
     case CHIP8_OpcodeLd5:
-      CHIP8_Key pressedKey = CHIP8_kpop(chip8);
+      CHIP8_Key pressedKey = CHIP8_kpop(chip8->keyboard);
       chip8->wait = pressedKey == CHIP8_KeyNone;
       if (pressedKey != CHIP8_KeyNone) {
         chip8->r[vx] = pressedKey;
@@ -376,6 +390,8 @@ CHIP8_Error CHIP8_execute(CHIP8_Chip8* chip8, CHIP8_Dword op, CHIP8_Opcode* opco
     case CHIP8_OpcodeLd10: memcpy(chip8->memory + chip8->i, chip8->r, vx + 1);
     break;
     case CHIP8_OpcodeLd11: memcpy(chip8->r, chip8->memory + chip8->i, vx + 1);
+    break;
+    default: return Chip8_InvalidOpcode;
   }
 
   return err;
